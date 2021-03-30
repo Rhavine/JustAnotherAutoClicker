@@ -4,7 +4,7 @@ license="MIT License"
 #issueTrackerURL="https://github.com/davidmaamoaix/JustAnotherAutoClicker/issues"
 [[mods]]
 modId="justanotherautoclicker"
-version="${file.jarVersion}"
+version="1.0.0"
 displayName="Just Another Auto Clicker"
 
 credits="Thanks to hours of clicking in modded skyblock -.-"

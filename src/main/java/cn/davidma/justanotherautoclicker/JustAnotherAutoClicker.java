@@ -1,10 +1,16 @@
 package cn.davidma.justanotherautoclicker;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.glfw.GLFW;
 
+import com.mojang.blaze3d.matrix.MatrixStack;
+
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.item.ItemStack;
@@ -18,6 +24,8 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.ForgeHooksClient;
 import net.minecraftforge.client.event.InputEvent.ClickInputEvent;
 import net.minecraftforge.client.event.InputEvent.KeyInputEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType;
 import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.event.TickEvent.ClientTickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -73,6 +81,29 @@ public class JustAnotherAutoClicker {
 			
 			if (clickRightBinding.isDown()) {
 				clickRight = !clickRight;
+			}
+		}
+		
+		@SubscribeEvent
+		public static void renderOverlay(RenderGameOverlayEvent event) {
+			if (event.getType() != ElementType.TEXT) return;
+			
+			Minecraft game = Minecraft.getInstance();
+			List<String> notes = new ArrayList<>();
+			
+			if (clickLeft) {
+				notes.add(I18n.get("key.justanotherautoclicker.clickingleft"));
+			}
+			
+			if (clickRight) {
+				notes.add(I18n.get("key.justanotherautoclicker.clickingright"));
+			}
+			
+			for (int i = 0; i <  notes.size(); i++) {
+				String text = notes.get(i);
+				int spacing = game.font.lineHeight + 2;
+				
+				game.font.draw(new MatrixStack(), text, 5, 5 + spacing * i, 0x00FF00);
 			}
 		}
 	}
