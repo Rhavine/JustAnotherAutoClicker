@@ -6,7 +6,15 @@ import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.BlockRayTraceResult;
+import net.minecraft.util.math.EntityRayTraceResult;
+import net.minecraft.util.math.RayTraceResult;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.ForgeHooksClient;
+import net.minecraftforge.client.event.InputEvent.ClickInputEvent;
+import net.minecraftforge.client.event.InputEvent.KeyInputEvent;
 import net.minecraftforge.event.TickEvent.ClientTickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
@@ -20,34 +28,24 @@ public class JustAnotherAutoClicker {
 
 	public static final Logger LOGGER = LogManager.getLogger();
 	
-	private KeyBinding holdRightBinding;
-	private KeyBinding holdLeftBinding;
-	private KeyBinding clickRightBinding;
-	private KeyBinding clickLeftBinding;
+	private static KeyBinding clickLeftBinding;
+	private static KeyBinding clickRightBinding;
 	
-	private boolean holdRight;
-	private boolean holdLeft;
-	private boolean clickRight;
-	private boolean clickLeft;
+	private static boolean clickLeft;
+	private static boolean clickRight;
 	
 	public JustAnotherAutoClicker() {
 		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::clientSetup);
 	}
 	
 	public void clientSetup(FMLClientSetupEvent event) {
-		this.holdRightBinding = new KeyBinding("key.justanotherautoclicker.holdright",
-				GLFW.GLFW_KEY_H, "key.categories.justanotherautoclicker");
-		this.holdLeftBinding = new KeyBinding("key.justanotherautoclicker.holdright",
-				GLFW.GLFW_KEY_H, "key.categories.justanotherautoclicker");
-		this.clickRightBinding = new KeyBinding("key.justanotherautoclicker.holdright",
-				GLFW.GLFW_KEY_H, "key.categories.justanotherautoclicker");
-		this.clickLeftBinding = new KeyBinding("key.justanotherautoclicker.holdright",
-				GLFW.GLFW_KEY_H, "key.categories.justanotherautoclicker");
+		clickLeftBinding = new KeyBinding("key.justanotherautoclicker.clickleft",
+				GLFW.GLFW_KEY_P, "key.categories.justanotherautoclicker");
+		clickRightBinding = new KeyBinding("key.justanotherautoclicker.clickright",
+				GLFW.GLFW_KEY_O, "key.categories.justanotherautoclicker");
 		
-		ClientRegistry.registerKeyBinding(this.holdRightBinding);
-		ClientRegistry.registerKeyBinding(this.holdLeftBinding);
-		ClientRegistry.registerKeyBinding(this.clickRightBinding);
-		ClientRegistry.registerKeyBinding(this.clickLeftBinding);
+		ClientRegistry.registerKeyBinding(clickLeftBinding);
+		ClientRegistry.registerKeyBinding(clickRightBinding);
 	}
 	
 	@EventBusSubscriber(Dist.CLIENT)
@@ -55,9 +53,54 @@ public class JustAnotherAutoClicker {
 		
 		@SubscribeEvent
 		public static void tick(ClientTickEvent event) {
-			if (Minecraft.getInstance().isPaused()) return;
+			final Minecraft game = Minecraft.getInstance();
 			
+			// disable when paused
+			if (game.isPaused()) return;
 			
+			if (clickLeft) leftClick();
+			if (clickRight) rightClick();
 		}
+		
+		@SubscribeEvent
+		public static void keyPress(KeyInputEvent event) {
+			if (clickLeftBinding.isDown()) {
+				clickLeft = !clickLeft;
+			}
+			
+			if (clickRightBinding.isDown()) {
+				clickRight = !clickRight;
+			}
+		}
+	}
+	
+	private static void leftClick() {
+		final Minecraft game = Minecraft.getInstance();
+		final RayTraceResult result = game.hitResult;
+		
+		final ClickInputEvent event = ForgeHooksClient.onClickInput(0, game.options.keyAttack, Hand.MAIN_HAND);
+		
+		switch (result.getType()) {
+		case BLOCK:
+			final BlockRayTraceResult blockResult = (BlockRayTraceResult) result;
+			final BlockPos pos = blockResult.getBlockPos();
+			
+			if (!game.level.isEmptyBlock(pos)) {
+                game.gameMode.startDestroyBlock(pos, blockResult.getDirection());
+                break;
+             }
+			break;
+		case ENTITY:
+			game.gameMode.attack(game.player, ((EntityRayTraceResult) result).getEntity());
+            break;
+		default:
+			break;
+		}
+		
+		if (event.shouldSwingHand()) game.player.swing(Hand.MAIN_HAND);
+	}
+	
+	private static void rightClick() {
+		
 	}
 }
