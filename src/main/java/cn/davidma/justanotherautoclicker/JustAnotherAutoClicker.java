@@ -6,6 +6,9 @@ import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.entity.Entity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ActionResultType;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
@@ -15,6 +18,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.ForgeHooksClient;
 import net.minecraftforge.client.event.InputEvent.ClickInputEvent;
 import net.minecraftforge.client.event.InputEvent.KeyInputEvent;
+import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.event.TickEvent.ClientTickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
@@ -53,10 +57,9 @@ public class JustAnotherAutoClicker {
 		
 		@SubscribeEvent
 		public static void tick(ClientTickEvent event) {
-			final Minecraft game = Minecraft.getInstance();
 			
 			// disable when paused
-			if (game.isPaused()) return;
+			if (Minecraft.getInstance().isPaused()) return;
 			
 			if (clickLeft) leftClick();
 			if (clickRight) rightClick();
@@ -75,32 +78,121 @@ public class JustAnotherAutoClicker {
 	}
 	
 	private static void leftClick() {
-		final Minecraft game = Minecraft.getInstance();
-		final RayTraceResult result = game.hitResult;
+		Minecraft game = Minecraft.getInstance();
+		RayTraceResult result = game.hitResult;
 		
-		final ClickInputEvent event = ForgeHooksClient.onClickInput(0, game.options.keyAttack, Hand.MAIN_HAND);
-		
-		switch (result.getType()) {
-		case BLOCK:
-			final BlockRayTraceResult blockResult = (BlockRayTraceResult) result;
-			final BlockPos pos = blockResult.getBlockPos();
+		if (!game.player.isHandsBusy()) {
+			ClickInputEvent event = ForgeHooksClient.onClickInput(
+					0, game.options.keyAttack, Hand.MAIN_HAND);
 			
-			if (!game.level.isEmptyBlock(pos)) {
-                game.gameMode.startDestroyBlock(pos, blockResult.getDirection());
-                break;
-             }
-			break;
-		case ENTITY:
-			game.gameMode.attack(game.player, ((EntityRayTraceResult) result).getEntity());
-            break;
-		default:
-			break;
+			switch (result.getType()) {	
+			case ENTITY:
+				game.gameMode.attack(game.player, ((EntityRayTraceResult) result).getEntity());
+	            break;
+	            
+			case BLOCK:
+				BlockRayTraceResult blockResult = (BlockRayTraceResult) result;
+				BlockPos pos = blockResult.getBlockPos();
+				
+				if (!game.level.isEmptyBlock(pos)) {
+	                game.gameMode.startDestroyBlock(pos, blockResult.getDirection());
+	                break;
+	            }
+				
+			case MISS:
+				game.player.resetAttackStrengthTicker();
+				ForgeHooks.onEmptyLeftClick(game.player);
+			}
+			
+			if (event.shouldSwingHand()) game.player.swing(Hand.MAIN_HAND);
 		}
-		
-		if (event.shouldSwingHand()) game.player.swing(Hand.MAIN_HAND);
 	}
 	
 	private static void rightClick() {
+		Minecraft game = Minecraft.getInstance();
+		RayTraceResult result = game.hitResult;
 		
+		if (!game.gameMode.isDestroying() && !game.player.isHandsBusy()) {
+			for (Hand hand: Hand.values()) {
+				ClickInputEvent event = ForgeHooksClient.onClickInput(
+						1, game.options.keyUse, hand);
+				
+				if (event.isCanceled()) {
+					if (event.shouldSwingHand()) {
+						game.player.swing(hand);
+					}
+					
+					return;
+				}
+				
+				ItemStack stack = game.player.getItemInHand(hand);
+				if (result != null) {
+					switch (result.getType()) {
+					case ENTITY:
+						EntityRayTraceResult entityResult = (EntityRayTraceResult) result;
+						Entity entity = entityResult.getEntity();
+						ActionResultType actionEntityResult = game.gameMode.interactAt(
+								game.player, entity, entityResult, hand);
+						
+						if (!actionEntityResult.consumesAction()) {
+							actionEntityResult = game.gameMode.interact(game.player, entity, hand);
+						}
+						
+						if (actionEntityResult.consumesAction()) {
+							if (actionEntityResult.shouldSwing()) {
+								if (event.shouldSwingHand()) game.player.swing(hand);
+							}
+						}
+						
+						break;
+					
+					case BLOCK:
+						BlockRayTraceResult blockResult = (BlockRayTraceResult) result;
+						int count = stack.getCount();
+						ActionResultType actionBlockResult = game.gameMode.useItemOn(
+								game.player, game.level, hand, blockResult);
+						
+						if (actionBlockResult.consumesAction()) {
+							if (actionBlockResult.shouldSwing()) {
+								if (event.shouldSwingHand()) game.player.swing(hand);
+								
+								if (!stack.isEmpty() && (stack.getCount() != count 
+										|| game.gameMode.hasInfiniteItems())) {
+									
+		                        	game.gameRenderer.itemInHandRenderer.itemUsed(hand);
+		                        }
+							}
+							
+							return;
+						}
+						
+						if (actionBlockResult == ActionResultType.FAIL) return;
+						break;
+
+					case MISS:
+						break;
+					}
+				}
+				
+				if (stack.isEmpty() && (game.hitResult == null ||
+						game.hitResult.getType() == RayTraceResult.Type.MISS)) {
+					
+					ForgeHooks.onEmptyClick(game.player, hand);
+				}
+				
+				if (!stack.isEmpty()) {
+					ActionResultType otherResult = game.gameMode.useItem(game.player, game.level, hand);
+					
+					if (otherResult.consumesAction()) {
+						if (otherResult.shouldSwing()) {
+							game.player.swing(hand);
+	                    }
+						
+						game.gameRenderer.itemInHandRenderer.itemUsed(hand);
+						return;
+					}
+				}
+			}
+		}
 	}
 }
