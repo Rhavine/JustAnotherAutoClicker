@@ -1,16 +1,8 @@
-[
-{
-  "modid": "examplemod",
-  "name": "Example Mod",
-  "description": "Example placeholder mod.",
-  "version": "${version}",
-  "mcversion": "${mcversion}",
-  "url": "",
-  "updateUrl": "",
-  "authorList": ["ExampleDude"],
-  "credits": "The Forge and FML guys, for making this example",
-  "logoFile": "",
-  "screenshots": [],
-  "dependencies": []
-}
-]
+[{
+  "modid": "justanotherautoclicker",
+  "name": "Just Another Auto Clicker",
+  "description": "A client-side auto clicker that reduces the grind of playing modded Minecraft.",
+  "version": "1.0.0",
+  "mcversion": "1.7.10",
+  "authorList": ["David Ma"],
+}]
