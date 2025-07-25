@@ -10,9 +10,11 @@ import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.input.Keyboard;
+
+import java.lang.reflect.Method;
+import java.util.List;
 
 @Mod(modid = "justanotherautoclicker", name = "Just Another Auto Clicker", version = "1.0", clientSideOnly = true)
 public class JustAnotherAutoClicker {
@@ -22,11 +24,20 @@ public class JustAnotherAutoClicker {
     private static int clickDelayCounter = 0;
     private static final int CLICK_DELAY_TICKS = 2;
 
+    private Method clickMouseMethod;
+
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
         holdKey = new KeyBinding("Hold Auto Clicker", Keyboard.KEY_N, "Just Another Auto Clicker");
         ClientRegistry.registerKeyBinding(holdKey);
         MinecraftForge.EVENT_BUS.register(this);
+
+        try {
+            clickMouseMethod = Minecraft.class.getDeclaredMethod("clickMouse");
+            clickMouseMethod.setAccessible(true);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @SubscribeEvent
@@ -36,8 +47,12 @@ public class JustAnotherAutoClicker {
         boolean keyHeld = holdKey.isKeyDown();
 
         if (keyHeld && hasEntityInFront()) {
-            if (clickDelayCounter <= 0) {
-                mc.clickMouse(); // ini yang bener buat serang entity
+            if (clickDelayCounter <= 0 && clickMouseMethod != null) {
+                try {
+                    clickMouseMethod.invoke(mc);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 clickDelayCounter = CLICK_DELAY_TICKS;
             } else {
                 clickDelayCounter--;
@@ -54,9 +69,11 @@ public class JustAnotherAutoClicker {
 
         Vec3d look = viewEntity.getLookVec().scale(reach);
         AxisAlignedBB box = viewEntity.getEntityBoundingBox()
-            .expand(look.x, look.y, look.z)
-            .grow(1.0D);
+                .expand(look.x, look.y, look.z)
+                .grow(1.0D);
 
-        return !mc.world.getEntitiesWithinAABBExcludingEntity(mc.player, box).isEmpty();
+        List<Entity> entities = mc.world.getEntitiesWithinAABBExcludingEntity(viewEntity, box);
+
+        return !entities.isEmpty();
     }
 }
