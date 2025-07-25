@@ -18,46 +18,32 @@ import org.lwjgl.input.Keyboard;
 public class JustAnotherAutoClicker {
 
     private static final Minecraft mc = Minecraft.getMinecraft();
-    private static final int HOLD_DURATION_TICKS = 2;
-
-    private static KeyBinding toggleKey;
-    private static boolean isClicking = false;
-    private static int holdTickCounter = 0;
-    private static boolean mousePressed = false;
+    private static KeyBinding holdKey;
+    private static int clickDelayCounter = 0;
+    private static final int CLICK_DELAY_TICKS = 2;
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
-        toggleKey = new KeyBinding("Toggle Auto Clicker", Keyboard.KEY_N, "Just Another Auto Clicker");
-        ClientRegistry.registerKeyBinding(toggleKey);
+        holdKey = new KeyBinding("Hold Auto Clicker", Keyboard.KEY_N, "Just Another Auto Clicker");
+        ClientRegistry.registerKeyBinding(holdKey);
         MinecraftForge.EVENT_BUS.register(this);
-    }
-
-    @SubscribeEvent
-    public void onKeyInput(InputEvent.KeyInputEvent event) {
-        if (toggleKey.isPressed()) {
-            isClicking = !isClicking;
-        }
     }
 
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END || mc.world == null || mc.player == null) return;
 
-        if (isClicking && hasEntityInFront()) {
-            if (!mousePressed) {
-                mc.gameSettings.keyBindAttack.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), true);
-                mousePressed = true;
-                holdTickCounter = HOLD_DURATION_TICKS;
+        boolean keyHeld = holdKey.isKeyDown();
+
+        if (keyHeld && hasEntityInFront()) {
+            if (clickDelayCounter <= 0) {
+                mc.clickMouse(); // ini yang bener buat serang entity
+                clickDelayCounter = CLICK_DELAY_TICKS;
             } else {
-                holdTickCounter--;
-                if (holdTickCounter <= 0) {
-                    mc.gameSettings.keyBindAttack.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
-                    mousePressed = false;
-                }
+                clickDelayCounter--;
             }
-        } else if (mousePressed) {
-            mc.gameSettings.keyBindAttack.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
-            mousePressed = false;
+        } else {
+            clickDelayCounter = 0;
         }
     }
 
@@ -65,12 +51,12 @@ public class JustAnotherAutoClicker {
         double reach = 3.0;
         Entity viewEntity = mc.getRenderViewEntity();
         if (viewEntity == null) return false;
-        
-        Vec3d look = viewEntity.getLookVec().scale(reach); // ini dulu
+
+        Vec3d look = viewEntity.getLookVec().scale(reach);
         AxisAlignedBB box = viewEntity.getEntityBoundingBox()
-            .expand(look.x, look.y, look.z) // baru expand
-            .grow(1.0D); // lalu grow
-        
+            .expand(look.x, look.y, look.z)
+            .grow(1.0D);
+
         return !mc.world.getEntitiesWithinAABBExcludingEntity(mc.player, box).isEmpty();
     }
 }
