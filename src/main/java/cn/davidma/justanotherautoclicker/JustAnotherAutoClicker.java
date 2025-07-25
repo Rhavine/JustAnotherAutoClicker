@@ -1,79 +1,86 @@
 package cn.davidma.justanotherautoclicker;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.player.ClientPlayerEntity;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.Vec3d;
-import net.minecraftforge.common.MinecraftForge;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.monster.IMob;
+import net.minecraft.util.math.vector.Vector3d;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.InputEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.event.FMLInitializationEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
-import org.lwjgl.input.Keyboard;
 
-import java.lang.reflect.Method;
-import java.util.List;
+import org.lwjgl.glfw.GLFW;
 
-@Mod(modid = "justanotherautoclicker", name = "Just Another Auto Clicker", version = "1.0", clientSideOnly = true)
+@Mod("justanotherautoclicker")
 public class JustAnotherAutoClicker {
 
-    private static final Minecraft mc = Minecraft.getMinecraft();
-    private static KeyBinding holdKey;
-    private static int clickDelayCounter = 0;
-    private static final int CLICK_DELAY_TICKS = 2;
+    private static final Minecraft mc = Minecraft.getInstance();
+    private static final KeyBinding aimKey = new KeyBinding("key.justanotherautoclicker.aim", GLFW.GLFW_KEY_P, "JustAnotherAutoClicker");
+    private static boolean enabled = false;
 
-    @Mod.EventHandler
-    public void init(FMLInitializationEvent event) {
-        holdKey = new KeyBinding("Hold Auto Clicker", Keyboard.KEY_N, "Just Another Auto Clicker");
-        ClientRegistry.registerKeyBinding(holdKey);
-        MinecraftForge.EVENT_BUS.register(this);
+    public JustAnotherAutoClicker() {
+        ClientRegistry.registerKeyBinding(aimKey);
     }
 
-    @SubscribeEvent
-    public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || mc.world == null || mc.player == null) return;
+    @Mod.EventBusSubscriber(Dist.CLIENT)
+    public static class Events {
+        @SubscribeEvent
+        public static void onTick(TickEvent.ClientTickEvent event) {
+            if (!enabled || mc.isPaused() || mc.player == null || mc.level == null) return;
 
-        boolean keyHeld = holdKey.isKeyDown();
+            ClientPlayerEntity player = mc.player;
 
-        if (keyHeld && hasEntityInFront()) {
-            if (clickDelayCounter <= 0) {
-                try {
-                    Class<?> playerDataClass = Class.forName("maninthehouse.epicfight.capabilities.entity.player.PlayerData");
-                    Method getMethod = playerDataClass.getMethod("get", EntityPlayer.class);
-                    Object playerData = getMethod.invoke(null, mc.player);
+            double range = 5.0;
+            Entity closest = null;
+            double closestDist = Double.MAX_VALUE;
 
-                    Method getCombatMethod = playerDataClass.getMethod("getCombat");
-                    Object combat = getCombatMethod.invoke(playerData);
-
-                    Method attackMethod = combat.getClass().getMethod("attack");
-                    attackMethod.invoke(combat);
-                } catch (Exception e) {
-                    e.printStackTrace();
+            for (Entity e : mc.level.getEntities(player, player.getBoundingBox().inflate(range))) {
+                if (e instanceof LivingEntity && e instanceof IMob && e.isAlive()) {
+                    double dist = e.distanceToSqr(player);
+                    if (isInFront(player, e) && dist < closestDist) {
+                        closestDist = dist;
+                        closest = e;
+                    }
                 }
-                clickDelayCounter = CLICK_DELAY_TICKS;
-            } else {
-                clickDelayCounter--;
             }
-        } else {
-            clickDelayCounter = 0;
+
+            if (closest != null) {
+                lookAt(player, closest);
+                player.displayClientMessage(new net.minecraft.util.text.StringTextComponent("AIM → " + closest.getName().getString()), true);
+            }
         }
-    }
 
-    private boolean hasEntityInFront() {
-        double reach = 3.0;
-        Entity viewEntity = mc.getRenderViewEntity();
-        if (viewEntity == null) return false;
+        @SubscribeEvent
+        public static void onKey(InputEvent.KeyInputEvent event) {
+            if (aimKey.isDown()) {
+                enabled = !enabled;
+                String msg = enabled ? "§aON" : "§cOFF";
+                mc.player.displayClientMessage(new net.minecraft.util.text.StringTextComponent("Aim Assist: " + msg), true);
+            }
+        }
 
-        Vec3d look = viewEntity.getLookVec().scale(reach);
-        AxisAlignedBB box = viewEntity.getEntityBoundingBox()
-                .expand(look.x, look.y, look.z)
-                .grow(1.0D);
+        private static boolean isInFront(ClientPlayerEntity player, Entity target) {
+            Vector3d look = player.getLookAngle().normalize();
+            Vector3d dir = target.position().subtract(player.position()).normalize();
+            return look.dot(dir) > 0.5; // sekitar 60 derajat ke depan
+        }
 
-        List<Entity> entities = mc.world.getEntitiesWithinAABBExcludingEntity(viewEntity, box);
+        private static void lookAt(ClientPlayerEntity player, Entity target) {
+            Vector3d eyes = player.getEyePosition(1.0f);
+            Vector3d targetEyes = target.getEyePosition(1.0f);
+            Vector3d delta = targetEyes.subtract(eyes);
 
-        return !entities.isEmpty();
+            double dist = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
+            float yaw = (float)(Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90.0F);
+            float pitch = (float)(-Math.toDegrees(Math.atan2(delta.y, dist)));
+
+            player.yRot = yaw;
+            player.xRot = pitch;
+        }
     }
 }
