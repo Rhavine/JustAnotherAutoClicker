@@ -64,10 +64,12 @@ public class JustAnotherAutoClicker {
         double reach = 3.0;
         Entity viewEntity = mc.getRenderViewEntity();
         if (viewEntity == null) return false;
-
+        
+        Vec3d look = viewEntity.getLookVec().scale(reach); // ini dulu
         AxisAlignedBB box = viewEntity.getEntityBoundingBox()
-                .expand(viewEntity.getLookVec().scale(reach))
-                .grow(1.0D);
+            .expand(look.x, look.y, look.z) // baru expand
+            .grow(1.0D); // lalu grow
+        
         return !mc.world.getEntitiesWithinAABBExcludingEntity(mc.player, box).isEmpty();
     }
 }
