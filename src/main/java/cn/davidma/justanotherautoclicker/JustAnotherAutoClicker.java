@@ -4,13 +4,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.client.settings.KeyConflictContext;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.input.Keyboard;
 
@@ -27,7 +26,7 @@ public class JustAnotherAutoClicker {
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
-        toggleKey = new KeyBinding("Toggle Auto Clicker", KeyConflictContext.IN_GAME, Keyboard.KEY_V, "Just Another Auto Clicker");
+        toggleKey = new KeyBinding("Toggle Auto Clicker", Keyboard.KEY_N, "Just Another Auto Clicker");
         ClientRegistry.registerKeyBinding(toggleKey);
         MinecraftForge.EVENT_BUS.register(this);
     }
@@ -61,13 +60,14 @@ public class JustAnotherAutoClicker {
         }
     }
 
-    // Deteksi entity di depan dalam jangkauan 3 blok
     private boolean hasEntityInFront() {
         double reach = 3.0;
         Entity viewEntity = mc.getRenderViewEntity();
         if (viewEntity == null) return false;
 
-        AxisAlignedBB box = viewEntity.getEntityBoundingBox().expand(viewEntity.getLookVec().scale(reach)).grow(1.0D);
+        AxisAlignedBB box = viewEntity.getEntityBoundingBox()
+                .expand(viewEntity.getLookVec().scale(reach))
+                .grow(1.0D);
         return !mc.world.getEntitiesWithinAABBExcludingEntity(mc.player, box).isEmpty();
     }
 }
