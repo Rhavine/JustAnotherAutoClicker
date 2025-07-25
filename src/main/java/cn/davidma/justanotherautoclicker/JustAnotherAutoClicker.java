@@ -3,6 +3,7 @@ package cn.davidma.justanotherautoclicker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.common.MinecraftForge;
@@ -24,20 +25,11 @@ public class JustAnotherAutoClicker {
     private static int clickDelayCounter = 0;
     private static final int CLICK_DELAY_TICKS = 2;
 
-    private Method clickMouseMethod;
-
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
         holdKey = new KeyBinding("Hold Auto Clicker", Keyboard.KEY_N, "Just Another Auto Clicker");
         ClientRegistry.registerKeyBinding(holdKey);
         MinecraftForge.EVENT_BUS.register(this);
-
-        try {
-            clickMouseMethod = Minecraft.class.getDeclaredMethod("clickMouse");
-            clickMouseMethod.setAccessible(true);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     @SubscribeEvent
@@ -47,9 +39,17 @@ public class JustAnotherAutoClicker {
         boolean keyHeld = holdKey.isKeyDown();
 
         if (keyHeld && hasEntityInFront()) {
-            if (clickDelayCounter <= 0 && clickMouseMethod != null) {
+            if (clickDelayCounter <= 0) {
                 try {
-                    clickMouseMethod.invoke(mc);
+                    Class<?> playerDataClass = Class.forName("maninthehouse.epicfight.capabilities.entity.player.PlayerData");
+                    Method getMethod = playerDataClass.getMethod("get", EntityPlayer.class);
+                    Object playerData = getMethod.invoke(null, mc.player);
+
+                    Method getCombatMethod = playerDataClass.getMethod("getCombat");
+                    Object combat = getCombatMethod.invoke(playerData);
+
+                    Method attackMethod = combat.getClass().getMethod("attack");
+                    attackMethod.invoke(combat);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
