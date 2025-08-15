@@ -13,18 +13,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout kode
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # Setup Java (sesuai kebutuhan Minecraft 1.16.5)
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 8
 
-      - name: Build with Gradle
-        run: ./gradlew build
+      # Jalankan build dengan Gradle wrapper (6.8.1-all)
+      - name: Build with Gradle Wrapper
+        run: ./gradlew build --no-daemon
 
+      # Upload hasil build sebagai artifact
       - name: Upload built mod
         uses: actions/upload-artifact@v4
         with:
