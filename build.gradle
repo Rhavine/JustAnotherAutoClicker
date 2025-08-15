@@ -4,7 +4,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:4.1.77'
+        net.minecraftforge.gradle:ForgeGradle:4.1.+
     }
 }
 apply plugin: 'net.minecraftforge.gradle'
@@ -172,5 +172,6 @@ publishing {
         }
     }
 }
+
 
 
